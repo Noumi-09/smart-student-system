@@ -1,9 +1,13 @@
 const express = require("express");
 const app = express();
+require("dotenv").config();
+const cors = require("cors");
 const db = require("./db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const axios = require("axios");
 
+app.use(cors());
 app.use(express.json());
 
 // =======================
@@ -17,7 +21,7 @@ function verifyToken(req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, "secretkey123");
+    jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (err) {
@@ -83,9 +87,9 @@ app.post("/login", (req, res) => {
       return res.status(400).json({ message: "Invalid password" });
     }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      "secretkey123",
+    jwt.sign(
+    { id: user.id, email: user.email },
+      process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
 
@@ -164,10 +168,29 @@ app.delete("/student/:id", verifyToken, (req, res) => {
   });
 });
 
+app.post("/predict", verifyToken, async (req, res) => {
+  try {
+    const { attendance, marks } = req.body;
+
+    const response = await axios.post(`${process.env.FLASK_AI_URL}/predict`, {
+      attendance,
+      marks
+    });
+
+    res.json(response.data);
+
+  } catch (error) {
+    res.status(500).json({
+      message: "AI service error",
+      error: error.message
+    });
+  }
+});
+
 // =======================
 // START SERVER
 // =======================
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);

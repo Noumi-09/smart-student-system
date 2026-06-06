@@ -7,6 +7,7 @@ import Students from "./pages/Students";
 
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Prediction from "./pages/Prediction";
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/predict" element={<Prediction />} />
       </Routes>
 
     </BrowserRouter>

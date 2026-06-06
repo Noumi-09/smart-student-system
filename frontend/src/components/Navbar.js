@@ -40,6 +40,8 @@ function Navbar() {
                 Students
               </Link>
 
+              <Link to="/predict">AI Prediction</Link>
+
               <button
                 className="btn btn-danger btn-sm ms-3"
                 onClick={logout}
