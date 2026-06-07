@@ -7,21 +7,28 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
 
+// =======================
+// Middleware
+// =======================
 app.use(cors());
 app.use(express.json());
 
 // =======================
-// JWT Middleware
+// JWT Middleware (FIXED)
 // =======================
 function verifyToken(req, res, next) {
-  const token = req.headers["authorization"];
+  const authHeader = req.headers["authorization"];
 
-  if (!token) {
+  if (!authHeader) {
     return res.status(403).json({ message: "Token required" });
   }
 
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.split(" ")[1]
+    : authHeader;
+
   try {
-    jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (err) {
@@ -45,7 +52,8 @@ app.post("/register", async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const sql = "INSERT INTO users (name, email, password) VALUES (?, ?, ?)";
+    const sql =
+      "INSERT INTO users (name, email, password) VALUES (?, ?, ?)";
 
     db.query(sql, [name, email, hashedPassword], (err, result) => {
       if (err) {
@@ -63,7 +71,7 @@ app.post("/register", async (req, res) => {
 });
 
 // =======================
-// LOGIN
+// LOGIN (FIXED)
 // =======================
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
@@ -87,8 +95,9 @@ app.post("/login", (req, res) => {
       return res.status(400).json({ message: "Invalid password" });
     }
 
-    jwt.sign(
-    { id: user.id, email: user.email },
+    // FIX: token was missing assignment
+    const token = jwt.sign(
+      { id: user.id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -113,7 +122,7 @@ app.post("/student", verifyToken, (req, res) => {
 
   db.query(sql, [name, email, phone, course], (err, result) => {
     if (err) {
-      return res.status(500).json({ error: err });
+      return res.status(500).json({ error: err.message });
     }
 
     res.json({
@@ -129,7 +138,7 @@ app.get("/students", verifyToken, (req, res) => {
 
   db.query(sql, (err, results) => {
     if (err) {
-      return res.status(500).json({ error: err });
+      return res.status(500).json({ error: err.message });
     }
 
     res.json(results);
@@ -146,7 +155,7 @@ app.put("/student/:id", verifyToken, (req, res) => {
 
   db.query(sql, [name, email, phone, course, id], (err) => {
     if (err) {
-      return res.status(500).json({ error: err });
+      return res.status(500).json({ error: err.message });
     }
 
     res.json({ message: "Student updated successfully" });
@@ -161,24 +170,29 @@ app.delete("/student/:id", verifyToken, (req, res) => {
 
   db.query(sql, [id], (err) => {
     if (err) {
-      return res.status(500).json({ error: err });
+      return res.status(500).json({ error: err.message });
     }
 
     res.json({ message: "Student deleted successfully" });
   });
 });
 
+// =======================
+// AI PREDICTION (Flask)
+// =======================
 app.post("/predict", verifyToken, async (req, res) => {
   try {
     const { attendance, marks } = req.body;
 
-    const response = await axios.post(`${process.env.FLASK_AI_URL}/predict`, {
-      attendance,
-      marks
-    });
+    const response = await axios.post(
+      `${process.env.FLASK_AI_URL}/predict`,
+      {
+        attendance,
+        marks
+      }
+    );
 
     res.json(response.data);
-
   } catch (error) {
     res.status(500).json({
       message: "AI service error",
@@ -193,5 +207,5 @@ app.post("/predict", verifyToken, async (req, res) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+  console.log(`Server running on port ${PORT}`);
 });
